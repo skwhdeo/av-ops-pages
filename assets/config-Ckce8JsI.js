@@ -1,0 +1,1 @@
+import{C as e}from"./configuration-So_zJAF7.js";const o="https://dev-av-ops.maas-busan.shop",n=()=>typeof window<"u"?localStorage.getItem("access_token"):null,s=()=>{const t=n();return new e({basePath:o,baseOptions:{timeout:1e4,headers:{"Content-Type":"application/json",Accept:"application/json",...t?{Authorization:`Bearer ${t}`}:{}}}})};export{s as g};
