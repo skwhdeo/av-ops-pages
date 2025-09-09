@@ -1,0 +1,1 @@
+import{C as o}from"./configuration-FfIfyLxm.js";const e="https://av-ops.maas-busan.shop",n=()=>typeof window<"u"?localStorage.getItem("access_token"):null,s=()=>{const t=n();return new o({basePath:e,baseOptions:{timeout:1e4,headers:{"Content-Type":"application/json",Accept:"application/json",...t?{Authorization:`Bearer ${t}`}:{}}}})};export{s as a,n as g};
