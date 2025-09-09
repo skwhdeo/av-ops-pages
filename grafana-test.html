@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grafana API Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6">Grafana API 직접 테스트</h1>
+        
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">API 연결 정보</h2>
+            <div class="space-y-2 text-sm">
+                <div><strong>URL:</strong> <span id="grafanaUrl">https://grafana.maas-busan.shop</span></div>
+                <div><strong>Token:</strong> <span class="font-mono">glsa_mNkD...7939</span></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">테스트 버튼</h2>
+            <div class="space-x-2">
+                <button onclick="testConnection()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">연결 테스트</button>
+                <button onclick="listDataSources()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">데이터소스 조회</button>
+                <button onclick="listDashboards()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">대시보드 목록</button>
+                <button onclick="createDashboard()" class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">대시보드 생성</button>
+                <button onclick="clearLog()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">로그 지우기</button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">실행 로그</h2>
+            <div id="logContainer" class="bg-black text-green-400 p-4 rounded font-mono text-sm h-96 overflow-y-auto">
+                <div class="text-gray-500">테스트를 실행하면 결과가 여기에 표시됩니다...</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">대시보드 임베드 테스트</h2>
+            <div class="mb-4">
+                <input type="text" id="embedUid" placeholder="대시보드 UID 입력" class="px-3 py-2 border rounded w-64 mr-2">
+                <button onclick="embedDashboard()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">임베드</button>
+            </div>
+            <div id="embedContainer" class="border rounded" style="height: 600px; display: none;">
+                <iframe id="embedFrame" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRAFANA_URL = 'https://grafana.maas-busan.shop';
+        // 토큰은 환경 변수나 별도 설정 파일에서 로드해야 합니다
+        const GRAFANA_TOKEN = ''; // 실제 사용시 환경 변수에서 가져오세요
+
+        function addLog(type, message, data = null) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            
+            let colorClass = '';
+            switch(type) {
+                case 'success': colorClass = 'text-green-400'; break;
+                case 'error': colorClass = 'text-red-400'; break;
+                case 'info': colorClass = 'text-blue-400'; break;
+                case 'warning': colorClass = 'text-yellow-400'; break;
+                default: colorClass = 'text-gray-400';
+            }
+            
+            logEntry.className = colorClass;
+            logEntry.innerHTML = `<span class="text-gray-500">[${timestamp}]</span> ${message}`;
+            
+            if (data) {
+                const dataDiv = document.createElement('pre');
+                dataDiv.className = 'ml-8 text-xs opacity-75';
+                dataDiv.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+                logEntry.appendChild(dataDiv);
+            }
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            const logContainer = document.getElementById('logContainer');
+            logContainer.innerHTML = '<div class="text-gray-500">로그가 지워졌습니다.</div>';
+        }
+
+        async function testConnection() {
+            addLog('info', 'Grafana 연결 테스트 시작...');
+            
+            try {
+                const response = await fetch(`${GRAFANA_URL}/api/health`, {
+                    headers: {
+                        'Authorization': `Bearer ${GRAFANA_TOKEN}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog('success', 'Grafana 연결 성공!', data);
+                } else {
+                    const text = await response.text();
+                    addLog('error', `연결 실패: ${response.status} ${response.statusText}`, text);
+                }
+            } catch (error) {
+                addLog('error', '연결 오류:', error.message);
+            }
+        }
+
+        async function listDataSources() {
+            addLog('info', '데이터소스 조회 중...');
+            
+            try {
+                const response = await fetch(`${GRAFANA_URL}/api/datasources`, {
+                    headers: {
+                        'Authorization': `Bearer ${GRAFANA_TOKEN}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const dataSources = await response.json();
+                    addLog('success', `${dataSources.length}개의 데이터소스를 찾았습니다.`);
+                    dataSources.forEach(ds => {
+                        addLog('info', `- ${ds.name} (${ds.type})`, { id: ds.id, uid: ds.uid });
+                    });
+                } else {
+                    addLog('error', `데이터소스 조회 실패: ${response.status}`);
+                }
+            } catch (error) {
+                addLog('error', '데이터소스 조회 오류:', error.message);
+            }
+        }
+
+        async function listDashboards() {
+            addLog('info', '대시보드 목록 조회 중...');
+            
+            try {
+                const response = await fetch(`${GRAFANA_URL}/api/search?type=dash-db`, {
+                    headers: {
+                        'Authorization': `Bearer ${GRAFANA_TOKEN}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const dashboards = await response.json();
+                    addLog('success', `${dashboards.length}개의 대시보드를 찾았습니다.`);
+                    dashboards.forEach(db => {
+                        addLog('info', `- ${db.title} (UID: ${db.uid})`);
+                    });
+                } else {
+                    addLog('error', `대시보드 조회 실패: ${response.status}`);
+                }
+            } catch (error) {
+                addLog('error', '대시보드 조회 오류:', error.message);
+            }
+        }
+
+        async function createDashboard() {
+            addLog('info', '테스트 대시보드 생성 중...');
+            
+            const dashboard = {
+                dashboard: {
+                    id: null,
+                    uid: `av-ops-test-${Date.now()}`,
+                    title: `AV-OPS 테스트 ${new Date().toLocaleString()}`,
+                    tags: ['av-ops', 'test'],
+                    timezone: 'browser',
+                    panels: [
+                        {
+                            id: 1,
+                            gridPos: { h: 8, w: 12, x: 0, y: 0 },
+                            type: 'stat',
+                            title: '테스트 패널',
+                            targets: [
+                                {
+                                    expr: '1',
+                                    refId: 'A'
+                                }
+                            ]
+                        }
+                    ],
+                    schemaVersion: 30,
+                    version: 0
+                },
+                overwrite: false
+            };
+            
+            try {
+                const response = await fetch(`${GRAFANA_URL}/api/dashboards/db`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${GRAFANA_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(dashboard)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    addLog('success', '대시보드 생성 성공!', result);
+                    addLog('info', `URL: ${GRAFANA_URL}${result.url}`);
+                    addLog('info', `임베드 URL: ${GRAFANA_URL}${result.url}?kiosk`);
+                } else {
+                    const text = await response.text();
+                    addLog('error', `대시보드 생성 실패: ${response.status}`, text);
+                }
+            } catch (error) {
+                addLog('error', '대시보드 생성 오류:', error.message);
+            }
+        }
+
+        function embedDashboard() {
+            const uid = document.getElementById('embedUid').value;
+            if (!uid) {
+                alert('대시보드 UID를 입력하세요');
+                return;
+            }
+            
+            const embedUrl = `${GRAFANA_URL}/d/${uid}?kiosk&theme=light`;
+            document.getElementById('embedFrame').src = embedUrl;
+            document.getElementById('embedContainer').style.display = 'block';
+            addLog('info', `대시보드 임베드: ${embedUrl}`);
+        }
+
+        // 페이지 로드 시 초기 메시지
+        window.onload = () => {
+            addLog('info', 'Grafana API 테스트 준비 완료');
+            addLog('info', '위의 버튼을 클릭하여 테스트를 시작하세요');
+        };
+    </script>
+</body>
+</html>
